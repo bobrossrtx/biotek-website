@@ -1,0 +1,36 @@
+{
+  "name": "biotek-website",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "placeholders": "node scripts/generate-placeholders.mjs && node scripts/render-og.mjs",
+    "build:og": "node scripts/render-og.mjs",
+    "build:logo": "node scripts/tint-logo.mjs"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "next": "^14.2.35",
+    "nodemailer": "^10.3.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "20.14.10",
+    "@types/nodemailer": "^8.0.2",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.2.35",
+    "puppeteer": "^25.16.0",
+    "sharp": "^0.33.5",
+    "typescript": "5.5.3"
+  },
+  "optionalDependencies": {
+    "sharp": "^0.35.5"
+  }
+}

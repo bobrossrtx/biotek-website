@@ -1,0 +1,43 @@
+{
+  "intro": "Our goal is simple: bring free party back to the South East of England. Good vibes, proper sound, and a safe, friendly place to rave.",
+  "collective": {
+    "heading": "The Collective",
+    "statement": "We keep the names and identities of our organisers and collective members hidden — protecting the people behind the stack from those who want to bring a stop to us.",
+    "roles": [
+      {
+        "role": "Selectas",
+        "description": "We put smaller underground DJs and artists on our decks — everyone deserves a chance to play on a proper system, no following required. Backed by two resident DJs who keep the standard set."
+      },
+      {
+        "role": "The Crew",
+        "description": "The people that bring the night to the punters! It's a labour of love — long hours, cold hands, heavy boxes and a week of planning for a single night of like-minded people having it large."
+      },
+      {
+        "role": "Photographers",
+        "description": "They shoot the night from load-in to pack-down. Faces stay out of frame or out of the archive — privacy first, always. If you spot yourself and want it gone, it's gone."
+      }
+    ]
+  },
+  "standards": {
+    "heading": "Our Standards",
+    "intro": "It's a community effort. Here's the deal:",
+    "points": [
+      "We expect everyone to respect their fellow ravers",
+      "Look out for each other — don't be a bystander",
+      "We expect everyone to take their rubbish home — Leave No Trace",
+      "We expect everyone to respect the Police and the Location",
+      "Don't be bait",
+      "Respect the rig — drivers cost more than your phones so hands off, no drinks on the boxes",
+      "No fights, no weapons, no exceptions — you will be dealt with accordingly and the appropriate authorities will be notified",
+      "We advocate for PLUR"
+    ],
+    "outro": "Party organisers put in a lot of risk for your enjoyment and the love of the game! Please respect our simple rules so we can all enjoy the party."
+  },
+  "rig": {
+    "heading": "The Rig",
+    "intro": "",
+    "photos": [],
+    "specs": [],
+    "note": "Full tech rider and stage plans available on request — see the booking page."
+  }
+}

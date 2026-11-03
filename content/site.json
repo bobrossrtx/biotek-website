@@ -1,0 +1,14 @@
+{
+  "name": "BioTek Sound System",
+  "tagline": "Multigenre free party crew. South East UK.",
+  "heroTagline": "Multigenre free party collective and soundsystem. South East UK.",
+  "nextEventLabel": "Next Event",
+  "featuredMixLabel": "Featured Sets",
+  "email": "bookings@biotek.co.uk",
+  "location": "East Sussex, UK",
+  "url": "https://biotek.co.uk",
+  "social": [
+    { "label": "SoundCloud", "url": "https://soundcloud.com/biotek-placeholder" },
+    { "label": "Instagram", "url": "https://www.instagram.com/biotek.placeholder" }
+  ]
+}
