@@ -20,13 +20,13 @@ export function pageMetadata(overrides: Partial<Metadata> & { title?: string; de
       url,
       siteName: site.name,
       type: "website",
-      images: [{ url: "/images/og.png?v=2", width: 1200, height: 630, alt: site.name }],
+      images: [{ url: "/images/og2.png", width: 1200, height: 630, alt: site.name }],
     },
     twitter: {
       card: "summary_large_image",
       title: pageTitle,
       description: pageDesc,
-      images: ["/images/og.png?v=2"],
+      images: [{ url: "/images/og2.png", alt: site.name }],
     },
   };
 }
