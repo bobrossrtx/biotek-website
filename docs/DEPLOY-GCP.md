@@ -88,7 +88,7 @@ curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo 
 sudo apt update && sudo apt install caddy
 
 sudo tee /etc/caddy/Caddyfile > /dev/null << 'CADDY'
-biotek.co.uk, www.biotek.co.uk {
+biotekcrew.co.uk, www.biotekcrew.co.uk {
     reverse_proxy localhost:3000
 }
 CADDY
