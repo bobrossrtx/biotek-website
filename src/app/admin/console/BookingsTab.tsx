@@ -31,11 +31,14 @@ export default function BookingsTab() {
   const [subs, setSubs] = useState<Subscriber[]>([]);
   const [showSubs, setShowSubs] = useState(false);
   const [showAll, setShowAll] = useState(false);
-  const [openThreads, setOpenThreads] = useState<Record<number, ThreadMessage[]>>({});
-  const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({});
-  const [sendingTo, setSendingTo] = useState<number | null>(null);
-  const [threadErrors, setThreadErrors] = useState<Record<number, string>>({});
-  const [expanded, setExpanded] = useState<number | null>(null);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [checked, setChecked] = useState<Set<number>>(new Set());
+  const [thread, setThread] = useState<ThreadMessage[]>([]);
+  const [threadLoading, setThreadLoading] = useState(false);
+  const [replyDraft, setReplyDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [threadError, setThreadError] = useState("");
+  const threadRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/admin/bookings${showAll ? "?all=1" : ""}`);
@@ -48,12 +51,18 @@ export default function BookingsTab() {
   }, []);
 
   const loadThread = useCallback(async (bookingId: number) => {
+    setThreadLoading(true);
     const res = await fetch(`/api/admin/bookings/thread?bookingId=${bookingId}`);
-    if (res.ok) {
-      const msgs: ThreadMessage[] = await res.json();
-      setOpenThreads((prev) => ({ ...prev, [bookingId]: msgs }));
-    }
+    if (res.ok) setThread(await res.json());
+    setThreadLoading(false);
   }, []);
+
+  // poll for new messages while a booking is open (inbound replies)
+  useEffect(() => {
+    if (selected === null) return;
+    const t = window.setInterval(() => loadThread(selected), 15000);
+    return () => window.clearInterval(t);
+  }, [selected, loadThread]);
 
   useEffect(() => {
     load();
@@ -63,19 +72,95 @@ export default function BookingsTab() {
     if (showSubs) loadSubs();
   }, [showSubs, loadSubs]);
 
-  async function markRead(b: Booking) {
+  function openBooking(b: Booking) {
+    setSelected(b.id);
+    setReplyDraft("");
+    setThreadError("");
+    loadThread(b.id);
+    if (!b.read) {
+      markRead(b, true);
+      b.read = true;
+    }
+    setTimeout(() => {
+      threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight });
+    }, 300);
+  }
+
+  async function markRead(b: Booking, value?: boolean) {
+    const read = value ?? !b.read;
     await fetch("/api/admin/bookings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: b.id, read: !b.read }),
+      body: JSON.stringify({ id: b.id, read }),
+    });
+    setItems((prev) => prev.map((x) => (x.id === b.id ? { ...x, read } : x)));
+  }
+
+  async function deleteOne(id: number) {
+    if (!confirm(`Delete booking BT-${id} and its email thread?`)) return;
+    await fetch(`/api/admin/bookings?id=${id}`, { method: "DELETE" });
+    if (selected === id) setSelected(null);
+    setChecked((prev) => {
+      const n = new Set(prev);
+      n.delete(id);
+      return n;
     });
     load();
   }
 
-  async function remove(id: number) {
-    if (!confirm("Delete this booking and its email thread?")) return;
-    await fetch(`/api/admin/bookings?id=${id}`, { method: "DELETE" });
+  async function deleteChecked() {
+    const ids = Array.from(checked);
+    if (ids.length === 0) return;
+    if (!confirm(`Delete ${ids.length} booking${ids.length === 1 ? "" : "s"} and their email threads?`)) return;
+    await Promise.all(
+      ids.map((id) => fetch(`/api/admin/bookings?id=${id}`, { method: "DELETE" }))
+    );
+    if (selected !== null && ids.includes(selected)) setSelected(null);
+    setChecked(new Set());
     load();
+  }
+
+  function toggleCheck(id: number) {
+    setChecked((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
+
+  function toggleCheckAll() {
+    if (checked.size === items.length) setChecked(new Set());
+    else setChecked(new Set(items.map((i) => i.id)));
+  }
+
+  async function sendReply() {
+    const b = items.find((x) => x.id === selected);
+    if (!b) return;
+    const text = replyDraft.trim();
+    if (!text) {
+      setThreadError("Write a reply first");
+      return;
+    }
+    setSending(true);
+    setThreadError("");
+    const res = await fetch("/api/admin/bookings/reply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bookingId: b.id, message: text }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setSending(false);
+    if (!res.ok) {
+      setThreadError(data.error || "Send failed");
+      return;
+    }
+    setReplyDraft("");
+    loadThread(b.id);
+    load();
+    setTimeout(() => {
+      threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
+    }, 200);
   }
 
   async function removeSub(email: string) {
@@ -86,40 +171,7 @@ export default function BookingsTab() {
     loadSubs();
   }
 
-  function toggleThread(b: Booking) {
-    if (expanded === b.id) {
-      setExpanded(null);
-      return;
-    }
-    setExpanded(b.id);
-    loadThread(b.id);
-  }
-
-  async function sendReply(b: Booking) {
-    const text = (replyDrafts[b.id] ?? "").trim();
-    if (!text) {
-      setThreadErrors((p) => ({ ...p, [b.id]: "Write a reply first" }));
-      return;
-    }
-    setSendingTo(b.id);
-    setThreadErrors((p) => ({ ...p, [b.id]: "" }));
-    const res = await fetch("/api/admin/bookings/reply", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bookingId: b.id, message: text }),
-    });
-    const data = await res.json().catch(() => ({}));
-    setSendingTo(null);
-    if (!res.ok) {
-      setThreadErrors((p) => ({ ...p, [b.id]: data.error || "Send failed" }));
-      return;
-    }
-    setReplyDrafts((p) => ({ ...p, [b.id]: "" }));
-    loadThread(b.id);
-    load();
-  }
-
-  const replyRef = useRef<Record<number, HTMLTextAreaElement | null>>({});
+  const selectedBooking = items.find((x) => x.id === selected) ?? null;
 
   return (
     <div>
@@ -127,7 +179,15 @@ export default function BookingsTab() {
         <h2 className="section-title" style={{ fontSize: "1.6rem" }}>
           Bookings
         </h2>
-        <div style={{ display: "flex", gap: "1.25rem", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "1.25rem", alignItems: "center", flexWrap: "wrap" }}>
+          {checked.size > 0 && (
+            <>
+              <span className="mono-label">{checked.size} selected</span>
+              <button type="button" className="admin-link admin-link--danger" onClick={deleteChecked}>
+                Delete selected
+              </button>
+            </>
+          )}
           <button
             type="button"
             className="admin-link"
@@ -172,105 +232,178 @@ export default function BookingsTab() {
         </div>
       )}
 
-      <div className="admin-bookings">
-        {items.map((b) => (
-          <article key={b.id} className={`card admin-booking ${b.read ? "is-read" : ""}`}>
-            <div className="admin-booking__head">
-              <div>
-                <p className="admin-booking__name">
-                  BT-{b.id} · {b.name}{" "}
-                  <a className="admin-link" href={`mailto:${b.email}`}>
-                    {b.email}
-                  </a>
+      <div className="inbox-layout">
+        <div className="inbox-list">
+          <div className="inbox-list__actions">
+            <label className="admin-check">
+              <input
+                type="checkbox"
+                checked={items.length > 0 && checked.size === items.length}
+                onChange={toggleCheckAll}
+                aria-label="Select all"
+              />
+              Select all
+            </label>
+          </div>
+
+          <ul className="inbox-items">
+            {items.map((b) => (
+              <li
+                key={b.id}
+                className={`inbox-item ${selected === b.id ? "is-selected" : ""} ${
+                  b.read ? "is-read" : "is-unread"
+                }`}
+              >
+                <label className="inbox-item__check">
+                  <input
+                    type="checkbox"
+                    checked={checked.has(b.id)}
+                    onChange={() => toggleCheck(b.id)}
+                    aria-label={`Select booking BT-${b.id}`}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="inbox-item__main"
+                  onClick={() => openBooking(b)}
+                >
+                  <span className="inbox-item__row">
+                    <span className="inbox-item__ref">BT-{b.id}</span>
+                    <span className="inbox-item__name">
+                      {b.read ? "" : "● "}
+                      {b.name}
+                    </span>
+                    <span className="inbox-item__date">
+                      {new Date(b.createdAt + "Z").toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                      })}
+                    </span>
+                  </span>
+                  <span className="inbox-item__row">
+                    <span className="inbox-item__subject">
+                      {b.eventType || "Booking enquiry"} — {b.location || "no location"}
+                    </span>
+                  </span>
+                  <span className="inbox-item__row">
+                    <span className="inbox-item__snippet">
+                      {b.message.slice(0, 80)}
+                      {b.message.length > 80 ? "…" : ""}
+                    </span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="admin-link admin-link--danger inbox-item__del"
+                  aria-label={`Delete booking BT-${b.id}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteOne(b.id);
+                  }}
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+            {items.length === 0 && (
+              <li className="lead" style={{ padding: "1rem 0.5rem" }}>
+                No {showAll ? "" : "unread "}bookings right now.
+              </li>
+            )}
+          </ul>
+        </div>
+
+        <div className="inbox-reader">
+          {!selectedBooking && (
+            <div className="inbox-reader__empty">
+              <p className="lead">Select a booking to read it and reply.</p>
+            </div>
+          )}
+
+          {selectedBooking && (
+            <>
+              <div className="inbox-reader__head">
+                <p className="inbox-reader__subject">
+                  {selectedBooking.eventType || "Booking enquiry"} — BT-{selectedBooking.id}
                 </p>
                 <p className="mono-label">
-                  {b.eventType || "—"} · {b.eventDate || "no date"} · {b.location || "—"} ·{" "}
-                  {new Date(b.createdAt + "Z").toLocaleString("en-GB")}
+                  {selectedBooking.name} &lt;{selectedBooking.email}&gt; ·{" "}
+                  {selectedBooking.eventDate || "no date"} · {selectedBooking.location || "—"}
                 </p>
+                <div className="admin-table__actions" style={{ marginTop: "0.5rem" }}>
+                  <button
+                    type="button"
+                    className="admin-link"
+                    onClick={() => markRead(selectedBooking)}
+                  >
+                    {selectedBooking.read ? "Mark unread" : "Mark read"}
+                  </button>
+                  <a
+                    className="admin-link"
+                    href={`mailto:${selectedBooking.email}?subject=Re: Booking enquiry [BT-${selectedBooking.id}]`}
+                  >
+                    Open in email app
+                  </a>
+                </div>
               </div>
-              <div className="admin-table__actions">
-                <button
-                  type="button"
-                  className={`admin-link ${expanded === b.id ? "is-active" : ""}`}
-                  onClick={() => toggleThread(b)}
-                  aria-expanded={expanded === b.id}
-                >
-                  {expanded === b.id ? "Close thread" : "Open thread"}
-                </button>
-                <button type="button" className="admin-link" onClick={() => markRead(b)}>
-                  {b.read ? "Mark unread" : "Mark read"}
-                </button>
-                <button
-                  type="button"
-                  className="admin-link admin-link--danger"
-                  onClick={() => remove(b.id)}
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-            <p className="admin-booking__message">{b.message}</p>
 
-            {expanded === b.id && (
-              <div className="admin-thread">
+              <div className="inbox-reader__original">
+                <p className="mono-label">Original message</p>
+                <p className="admin-thread__body">{selectedBooking.message}</p>
+              </div>
+
+              <div
+                className="admin-thread inbox-reader__thread"
+                ref={threadRef}
+              >
                 <h4 className="mono-label">Email thread</h4>
-                {(openThreads[b.id] ?? []).length === 0 && (
+                {threadLoading && <p className="mono-label">Loading…</p>}
+                {!threadLoading && thread.length === 0 && (
                   <p className="lead" style={{ fontSize: "0.9rem" }}>
-                    No emails yet — replies you send appear here. Inbound replies
-                    arrive automatically via the bookings@ address.
+                    No emails yet — replies you send appear here. Replies from{" "}
+                    {selectedBooking.name} arrive automatically once Resend&apos;s
+                    inbound webhook is configured.
                   </p>
                 )}
-                {(openThreads[b.id] ?? []).map((m) => (
+                {thread.map((m) => (
                   <div
                     key={m.id}
                     className={`admin-thread__msg admin-thread__msg--${m.direction}`}
                   >
                     <p className="mono-label admin-thread__meta">
-                      {m.direction === "out" ? "→ sent to" : "← from"} {m.direction === "out" ? m.to : m.from}
+                      {m.direction === "out" ? "→ to" : "← from"}{" "}
+                      {m.direction === "out" ? m.to : m.from}
                       {" · "}
                       {new Date(m.createdAt + "Z").toLocaleString("en-GB")}
                     </p>
                     <p className="admin-thread__body">{m.body}</p>
                   </div>
                 ))}
-
-                <div className="admin-thread__reply">
-                  <label htmlFor={`reply-${b.id}`} className="mono-label">
-                    Reply to {b.name}
-                  </label>
-                  <textarea
-                    id={`reply-${b.id}`}
-                    ref={(el) => {
-                      replyRef.current[b.id] = el;
-                    }}
-                    value={replyDrafts[b.id] ?? ""}
-                    onChange={(e) =>
-                      setReplyDrafts((p) => ({ ...p, [b.id]: e.target.value }))
-                    }
-                    rows={4}
-                    placeholder={`Hi ${b.name}, …`}
-                  />
-                  {threadErrors[b.id] && (
-                    <p className="error" role="alert">
-                      {threadErrors[b.id]}
-                    </p>
-                  )}
-                  <button
-                    type="button"
-                    className="btn"
-                    disabled={sendingTo === b.id}
-                    onClick={() => sendReply(b)}
-                  >
-                    {sendingTo === b.id ? "Sending…" : "Send reply"}
-                  </button>
-                </div>
               </div>
-            )}
-          </article>
-        ))}
-        {items.length === 0 && (
-          <p className="lead">No {showAll ? "" : "unread "}enquiries right now.</p>
-        )}
+
+              <div className="admin-thread__reply">
+                <label htmlFor="inbox-reply" className="mono-label">
+                  Reply to {selectedBooking.name} — sent from bookings@biotekcrew.party
+                </label>
+                <textarea
+                  id="inbox-reply"
+                  value={replyDraft}
+                  onChange={(e) => setReplyDraft(e.target.value)}
+                  rows={4}
+                  placeholder={`Hi ${selectedBooking.name}, …`}
+                />
+                {threadError && (
+                  <p className="error" role="alert">
+                    {threadError}
+                  </p>
+                )}
+                <button type="button" className="btn" disabled={sending} onClick={sendReply}>
+                  {sending ? "Sending…" : "Send reply"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
