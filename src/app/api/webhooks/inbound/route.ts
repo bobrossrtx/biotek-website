@@ -74,6 +74,12 @@ function authorized(req: NextRequest, rawBody: string): boolean {
     if (id && timestamp && verifySvixSignature(svixSecret, id, timestamp, rawBody, sigHeader.split(" "))) {
       return true;
     }
+    console.error("[inbound] svix verification failed:", {
+      has_svix_id: !!id,
+      has_svix_timestamp: !!timestamp,
+      has_svix_signature: sigHeader.length > 0,
+      secret_prefix: svixSecret.slice(0, 6),
+    });
   }
 
   // manual test path (curl with shared secret)
