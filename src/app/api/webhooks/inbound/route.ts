@@ -140,12 +140,20 @@ export async function POST(req: NextRequest) {
   }
 
   if (!bookingId) {
-    return NextResponse.json({ ok: true, matched: false });
+    return NextResponse.json({
+      ok: true,
+      matched: false,
+      reason: `no [BT-x] reference in subject "${subject}" and sender ${fromAddr} has no booking`,
+    });
   }
 
   const exists = db.prepare("SELECT id FROM bookings WHERE id = ?").get(bookingId);
   if (!exists) {
-    return NextResponse.json({ ok: true, matched: false });
+    return NextResponse.json({
+      ok: true,
+      matched: false,
+      reason: `booking BT-${bookingId} referenced in subject does not exist (deleted?)`,
+    });
   }
 
   // dedupe: same provider payload may be retried by Resend
