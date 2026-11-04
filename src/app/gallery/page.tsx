@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = pageMetadata({
   title: "Gallery",
   description:
-    "Free party photography from BioTek parties — stacks, crowds, generators and sunrises. East Sussex and beyond.",
+    "Free party photography from BioTek parties — stacks, crowds, fields and sunrises. East Sussex and beyond.",
   path: "/gallery/",
 });
 

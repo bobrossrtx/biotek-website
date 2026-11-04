@@ -43,10 +43,10 @@ export default function BookingPage() {
               <div className="card booking-aside__card">
                 <p className="mono-label">{"// We bring"}</p>
                 <ul className="booking-brings">
-                  <li>Full 4-way stack + engineer</li>
-                  <li>Generator or mains power</li>
-                  <li>Multigenre residents</li>
-                  <li>Full tech rider on request</li>
+                  <li>Speaker bins + amps, growing all the time</li>
+                  <li>Mains power required (no generator)</li>
+                  <li>Multigenre residents & DJs</li>
+                  <li>Full tech details on request</li>
                 </ul>
               </div>
               <div className="card booking-aside__card">
