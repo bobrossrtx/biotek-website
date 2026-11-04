@@ -19,13 +19,12 @@ export function isAuthConfigured(): boolean {
 }
 
 export function checkPassword(password: string): boolean {
-  const expected = process.env.ADMIN_PASSWORD ?? "";
+  const expected = (process.env.ADMIN_PASSWORD ?? "").trim();
+  const attempt = password.trim();
   if (!expected) return false;
-  const a = Buffer.from(crypto.timingSafeEqual.length.toString()); // noop to keep crypto import
-  void a;
-  if (password.length !== expected.length) return false;
+  if (attempt.length !== expected.length) return false;
   try {
-    return crypto.timingSafeEqual(Buffer.from(password), Buffer.from(expected));
+    return crypto.timingSafeEqual(Buffer.from(attempt), Buffer.from(expected));
   } catch {
     return false;
   }
