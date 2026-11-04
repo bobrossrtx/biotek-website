@@ -2070,3 +2070,66 @@ a {
   overflow-x: auto;
   margin: 0.5rem 0;
 }
+
+/* ---------- email threads (admin bookings) ---------- */
+
+.admin-thread {
+  margin-top: 1.25rem;
+  border-top: 1px solid var(--line);
+  padding-top: 1rem;
+}
+
+.admin-thread__msg {
+  border-left: 3px solid var(--line-2);
+  padding: 0.6rem 0.9rem;
+  margin-bottom: 0.75rem;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--bg);
+}
+
+.admin-thread__msg--in {
+  border-left-color: var(--acid);
+}
+
+.admin-thread__msg--out {
+  border-left-color: var(--mute);
+}
+
+.admin-thread__meta {
+  margin: 0 0 0.4rem;
+}
+
+.admin-thread__body {
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--ink);
+  font-size: 0.92rem;
+}
+
+.admin-thread__reply {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.admin-thread__reply textarea {
+  font: inherit;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  padding: 0.8rem 0.9rem;
+  resize: vertical;
+  min-height: 6rem;
+}
+
+.admin-thread__reply textarea:focus {
+  outline: none;
+  border-color: var(--acid);
+  box-shadow: 0 0 0 3px rgba(163, 255, 60, 0.15);
+}
+
+.admin-thread__reply .btn {
+  align-self: flex-start;
+}

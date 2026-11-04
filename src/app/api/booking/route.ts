@@ -45,12 +45,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Validation failed" }, { status: 400 });
   }
 
-  getDb()
+  const bookingInfo = getDb()
     .prepare(
       `INSERT INTO bookings (name, email, event_date, location, event_type, message)
        VALUES (?, ?, ?, ?, ?, ?)`
     )
     .run(name, email, eventDate, location, eventType, message);
+  const bookingId = Number(bookingInfo.lastInsertRowid);
 
   // acknowledgement email to the requester (non-blocking failure: the
   // booking is saved either way)
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
         from: bookingsFrom,
         to: email,
         replyTo: crewEmail,
-        subject: `Booking request received — BioTek Sound System`,
+        subject: `Booking request received [BT-${bookingId}] — BioTek Sound System`,
         text: `Hi ${name},
 
 Thanks for getting in touch — your booking request is in our inbox.
@@ -108,9 +109,24 @@ https://biotekcrew.party`,
       <p style="margin-top: 2rem;">BioTek Sound System<br/><a href="https://biotekcrew.party" style="color: #86e02e;">biotekcrew.party</a></p>
     </div>`,
       });
+      // record the acknowledgement as the first message in the thread
+      getDb()
+        .prepare(
+          `INSERT INTO email_messages (booking_id, direction, from_addr, to_addr, subject, body)
+           VALUES (?, 'out', ?, ?, ?, ?)`
+        )
+        .run(bookingId, from, email, `Booking request received [BT-${bookingId}]`, message ? `Hi ${name},\n\nThanks for getting in touch — your booking request is in our inbox.\n\nEvent type: ${eventType}\nDate: ${prettyDate}\nLocation: ${location}\n\nYour message:\n${message}\n\nWe'll come back to you within a couple of days.` : `Acknowledgement for booking BT-${bookingId}`);
     } catch (err) {
       console.error("Booking acknowledgement email failed:", err);
     }
+  } else {
+    // no mail transport — still seed the thread with the original enquiry context
+    getDb()
+      .prepare(
+        `INSERT INTO email_messages (booking_id, direction, from_addr, to_addr, subject, body)
+         VALUES (?, 'in', ?, ?, ?, ?)`
+      )
+      .run(bookingId, email, "bookings", "Booking enquiry", message);
   }
 
   return NextResponse.json({ ok: true });

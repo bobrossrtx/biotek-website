@@ -112,6 +112,20 @@ function migrate(db: Database.Database) {
       recipients INTEGER NOT NULL DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS email_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+      direction TEXT NOT NULL CHECK (direction IN ('out','in')),
+      from_addr TEXT NOT NULL,
+      to_addr TEXT NOT NULL,
+      subject TEXT DEFAULT '',
+      body TEXT NOT NULL,
+      provider_id TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_email_messages_booking
+      ON email_messages (booking_id, created_at);
   `);
 
   // migrations for pre-existing DBs — add columns if missing

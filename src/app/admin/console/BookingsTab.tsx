@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type Booking = {
   id: number;
@@ -14,6 +14,16 @@ type Booking = {
   createdAt: string;
 };
 
+type ThreadMessage = {
+  id: number;
+  direction: "in" | "out";
+  from: string;
+  to: string;
+  subject: string;
+  body: string;
+  createdAt: string;
+};
+
 type Subscriber = { email: string; createdAt: string };
 
 export default function BookingsTab() {
@@ -21,6 +31,11 @@ export default function BookingsTab() {
   const [subs, setSubs] = useState<Subscriber[]>([]);
   const [showSubs, setShowSubs] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [openThreads, setOpenThreads] = useState<Record<number, ThreadMessage[]>>({});
+  const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({});
+  const [sendingTo, setSendingTo] = useState<number | null>(null);
+  const [threadErrors, setThreadErrors] = useState<Record<number, string>>({});
+  const [expanded, setExpanded] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/admin/bookings${showAll ? "?all=1" : ""}`);
@@ -32,6 +47,14 @@ export default function BookingsTab() {
     if (res.ok) setSubs(await res.json());
   }, []);
 
+  const loadThread = useCallback(async (bookingId: number) => {
+    const res = await fetch(`/api/admin/bookings/thread?bookingId=${bookingId}`);
+    if (res.ok) {
+      const msgs: ThreadMessage[] = await res.json();
+      setOpenThreads((prev) => ({ ...prev, [bookingId]: msgs }));
+    }
+  }, []);
+
   useEffect(() => {
     load();
   }, [load]);
@@ -39,14 +62,6 @@ export default function BookingsTab() {
   useEffect(() => {
     if (showSubs) loadSubs();
   }, [showSubs, loadSubs]);
-
-  async function removeSub(email: string) {
-    if (!confirm(`Remove ${email} from the list?`)) return;
-    await fetch(`/api/admin/newsletter?email=${encodeURIComponent(email)}`, {
-      method: "DELETE",
-    });
-    loadSubs();
-  }
 
   async function markRead(b: Booking) {
     await fetch("/api/admin/bookings", {
@@ -58,10 +73,53 @@ export default function BookingsTab() {
   }
 
   async function remove(id: number) {
-    if (!confirm("Delete this enquiry?")) return;
+    if (!confirm("Delete this booking and its email thread?")) return;
     await fetch(`/api/admin/bookings?id=${id}`, { method: "DELETE" });
     load();
   }
+
+  async function removeSub(email: string) {
+    if (!confirm(`Remove ${email} from the list?`)) return;
+    await fetch(`/api/admin/newsletter?email=${encodeURIComponent(email)}`, {
+      method: "DELETE",
+    });
+    loadSubs();
+  }
+
+  function toggleThread(b: Booking) {
+    if (expanded === b.id) {
+      setExpanded(null);
+      return;
+    }
+    setExpanded(b.id);
+    loadThread(b.id);
+  }
+
+  async function sendReply(b: Booking) {
+    const text = (replyDrafts[b.id] ?? "").trim();
+    if (!text) {
+      setThreadErrors((p) => ({ ...p, [b.id]: "Write a reply first" }));
+      return;
+    }
+    setSendingTo(b.id);
+    setThreadErrors((p) => ({ ...p, [b.id]: "" }));
+    const res = await fetch("/api/admin/bookings/reply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bookingId: b.id, message: text }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setSendingTo(null);
+    if (!res.ok) {
+      setThreadErrors((p) => ({ ...p, [b.id]: data.error || "Send failed" }));
+      return;
+    }
+    setReplyDrafts((p) => ({ ...p, [b.id]: "" }));
+    loadThread(b.id);
+    load();
+  }
+
+  const replyRef = useRef<Record<number, HTMLTextAreaElement | null>>({});
 
   return (
     <div>
@@ -120,7 +178,7 @@ export default function BookingsTab() {
             <div className="admin-booking__head">
               <div>
                 <p className="admin-booking__name">
-                  {b.name}{" "}
+                  BT-{b.id} · {b.name}{" "}
                   <a className="admin-link" href={`mailto:${b.email}`}>
                     {b.email}
                   </a>
@@ -131,6 +189,14 @@ export default function BookingsTab() {
                 </p>
               </div>
               <div className="admin-table__actions">
+                <button
+                  type="button"
+                  className={`admin-link ${expanded === b.id ? "is-active" : ""}`}
+                  onClick={() => toggleThread(b)}
+                  aria-expanded={expanded === b.id}
+                >
+                  {expanded === b.id ? "Close thread" : "Open thread"}
+                </button>
                 <button type="button" className="admin-link" onClick={() => markRead(b)}>
                   {b.read ? "Mark unread" : "Mark read"}
                 </button>
@@ -144,6 +210,62 @@ export default function BookingsTab() {
               </div>
             </div>
             <p className="admin-booking__message">{b.message}</p>
+
+            {expanded === b.id && (
+              <div className="admin-thread">
+                <h4 className="mono-label">Email thread</h4>
+                {(openThreads[b.id] ?? []).length === 0 && (
+                  <p className="lead" style={{ fontSize: "0.9rem" }}>
+                    No emails yet — replies you send appear here. Inbound replies
+                    arrive automatically via the bookings@ address.
+                  </p>
+                )}
+                {(openThreads[b.id] ?? []).map((m) => (
+                  <div
+                    key={m.id}
+                    className={`admin-thread__msg admin-thread__msg--${m.direction}`}
+                  >
+                    <p className="mono-label admin-thread__meta">
+                      {m.direction === "out" ? "→ sent to" : "← from"} {m.direction === "out" ? m.to : m.from}
+                      {" · "}
+                      {new Date(m.createdAt + "Z").toLocaleString("en-GB")}
+                    </p>
+                    <p className="admin-thread__body">{m.body}</p>
+                  </div>
+                ))}
+
+                <div className="admin-thread__reply">
+                  <label htmlFor={`reply-${b.id}`} className="mono-label">
+                    Reply to {b.name}
+                  </label>
+                  <textarea
+                    id={`reply-${b.id}`}
+                    ref={(el) => {
+                      replyRef.current[b.id] = el;
+                    }}
+                    value={replyDrafts[b.id] ?? ""}
+                    onChange={(e) =>
+                      setReplyDrafts((p) => ({ ...p, [b.id]: e.target.value }))
+                    }
+                    rows={4}
+                    placeholder={`Hi ${b.name}, …`}
+                  />
+                  {threadErrors[b.id] && (
+                    <p className="error" role="alert">
+                      {threadErrors[b.id]}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={sendingTo === b.id}
+                    onClick={() => sendReply(b)}
+                  >
+                    {sendingTo === b.id ? "Sending…" : "Send reply"}
+                  </button>
+                </div>
+              </div>
+            )}
           </article>
         ))}
         {items.length === 0 && (
