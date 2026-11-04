@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
   if (transport) {
     const from = process.env.MAIL_FROM || process.env.SMTP_USER || "BioTek";
     const crewEmail = process.env.CREW_EMAIL || process.env.SMTP_USER;
+    const bookingsFrom = process.env.BOOKINGS_FROM || crewEmail;
     const prettyDate = eventDate
       ? new Date(eventDate + "T12:00:00").toLocaleDateString("en-GB", {
           weekday: "long",
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
 
     try {
       await transport.sendMail({
-        from,
+        from: bookingsFrom,
         to: email,
         replyTo: crewEmail,
         subject: `Booking request received — BioTek Sound System`,
