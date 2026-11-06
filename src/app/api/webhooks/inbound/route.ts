@@ -93,8 +93,12 @@ function authorized(req: NextRequest, rawBody: string): boolean {
     }
   }
 
-  // if neither secret is configured, accept (open endpoint — not recommended)
-  return !svixSecret && !legacySecret;
+  // fail closed: an endpoint with no configured secret must reject, or anyone
+  // could inject fake replies into booking threads while secrets are unset
+  if (!svixSecret && !legacySecret) {
+    console.error("[inbound] REJECTED: no webhook secret configured (set RESEND_WEBHOOK_SECRET or INBOUND_WEBHOOK_SECRET)");
+  }
+  return false;
 }
 
 export async function POST(req: NextRequest) {

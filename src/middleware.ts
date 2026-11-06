@@ -41,27 +41,61 @@ async function verify(token: string | undefined): Promise<boolean> {
 }
 
 /**
- * Guards /admin pages and /api/admin endpoints.
+ * Guards /admin pages and every /api/admin endpoint.
  * Unauthenticated requests to /api/admin get JSON 401;
  * /admin pages redirect to the login screen.
- * /api/admin/login must stay reachable without a session.
+ * Only /api/admin/login (password check) and /api/admin/logout
+ * (clears the cookie) are reachable without a session.
  */
+const PUBLIC_ADMIN_API = new Set(["/api/admin/login", "/api/admin/logout"]);
+
+/**
+ * CSRF defense-in-depth for state-changing requests: SameSite=Lax cookies
+ * already block cross-site POSTs, but verify Origin / Sec-Fetch-Site too.
+ * Non-browser clients (curl, webhooks, tunnels) send neither header and pass.
+ */
+function crossSiteMutation(req: NextRequest): boolean {
+  const fetchSite = req.headers.get("sec-fetch-site");
+  if (fetchSite && fetchSite !== "same-origin" && fetchSite !== "same-site" && fetchSite !== "none") {
+    return true;
+  }
+  const origin = req.headers.get("origin");
+  if (origin) {
+    try {
+      if (new URL(origin).host !== req.headers.get("host")) return true;
+    } catch {
+      return true;
+    }
+  }
+  return false;
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const token = req.cookies.get(SESSION_COOKIE)?.value;
-  const authed = await verify(token);
 
   if (pathname.startsWith("/api/admin")) {
-    if (!authed) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (req.method !== "GET" && req.method !== "HEAD" && crossSiteMutation(req)) {
+      return NextResponse.json({ error: "Cross-origin request blocked" }, { status: 403 });
+    }
+    if (!PUBLIC_ADMIN_API.has(pathname)) {
+      const token = req.cookies.get(SESSION_COOKIE)?.value;
+      if (!(await verify(token))) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
     }
     return NextResponse.next();
   }
 
-  if (!authed) {
+  const token = req.cookies.get(SESSION_COOKIE)?.value;
+  if (!(await verify(token))) {
     const url = req.nextUrl.clone();
     url.pathname = "/admin";
-    url.searchParams.set("next", pathname);
+    // keep only an internal path in ?next (no protocol-relative, no backslashes)
+    const internal =
+      pathname.startsWith("/") && !pathname.startsWith("//") && !pathname.includes("\\")
+        ? pathname
+        : "/admin/console";
+    url.searchParams.set("next", internal);
     return NextResponse.redirect(url);
   }
 
@@ -71,11 +105,6 @@ export async function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     "/admin/console/:path*",
-    "/api/admin/events/:path*",
-    "/api/admin/gallery/:path*",
-    "/api/admin/parties/:path*",
-    "/api/admin/mixes/:path*",
-    "/api/admin/bookings/:path*",
-    "/api/admin/logout/:path*",
+    "/api/admin/:path*",
   ],
 };

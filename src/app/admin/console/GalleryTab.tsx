@@ -248,7 +248,7 @@ export default function GalleryTab() {
               <input
                 ref={fileRef}
                 type="file"
-                accept="image/*,video/mp4,video/webm,video/quicktime"
+                accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime,video/x-matroska"
                 multiple
                 aria-label="Choose photos and videos"
                 onChange={(e) => e.target.files && uploadFiles(e.target.files)}

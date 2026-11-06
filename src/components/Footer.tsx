@@ -60,9 +60,6 @@ export default function Footer() {
         <p className="mono-label">
           <a href={`mailto:${site.email}`}>{site.email}</a>
         </p>
-        <Link href="/admin" className="site-footer__admin mono-label">
-          Admin login
-        </Link>
       </div>
     </footer>
   );

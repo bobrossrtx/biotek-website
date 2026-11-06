@@ -4,6 +4,15 @@ import { site } from "@/lib/content";
 const title = `${site.name} — ${site.tagline}`;
 const description = site.heroTagline;
 
+/**
+ * JSON.stringify does not escape "<", so admin-set text containing
+ * `</script><script>…` could break out of an ld+json block (stored XSS).
+ * Escape "<" universally before embedding in <script> tags.
+ */
+export function jsonLdString(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
+}
+
 export function pageMetadata(overrides: Partial<Metadata> & { title?: string; description?: string; path?: string }): Metadata {
   const pageTitle = overrides.title
     ? `${overrides.title} — ${site.name}`

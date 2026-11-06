@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { bodyTooLarge } from "@/lib/api-guard";
+import { publicPostRateLimiter, pruneRateLimiters } from "@/lib/rate-limit";
 import nodemailer from "nodemailer";
 
 export const runtime = "nodejs";
@@ -23,7 +25,32 @@ function buildTransport() {
   });
 }
 
+function esc(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export async function POST(req: NextRequest) {
+  pruneRateLimiters();
+  if (bodyTooLarge(req, 64 * 1024)) {
+    return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+  }
+
+  const ip =
+    req.headers.get("cf-connecting-ip") ??
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    "unknown";
+  const retryAfter = publicPostRateLimiter.hit(`booking:${ip}`);
+  if (retryAfter !== null) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(retryAfter) } }
+    );
+  }
+
   const data = await req.formData().catch(() => null);
   if (!data) {
     return NextResponse.json({ error: "Invalid form" }, { status: 400 });
@@ -96,15 +123,15 @@ https://biotekcrew.party`,
       <div style="border-bottom: 3px solid #a3ff3c; padding-bottom: 0.75rem; margin-bottom: 1.5rem;">
         <span style="font-size: 1.3rem; font-weight: 900; letter-spacing: 0.05em;">BIO<span style="color: #86e02e;">TEK</span></span>
       </div>
-      <p>Hi ${name},</p>
+      <p>Hi ${esc(name)},</p>
       <p>Thanks for getting in touch — your booking request is in our inbox.</p>
       <table style="border-collapse: collapse; font-size: 0.95rem;">
-        <tr><td style="padding: 0.25rem 1rem 0.25rem 0; color: #556;">Event type</td><td>${eventType || "not specified"}</td></tr>
-        <tr><td style="padding: 0.25rem 1rem 0.25rem 0; color: #556;">Date</td><td>${prettyDate}</td></tr>
-        <tr><td style="padding: 0.25rem 1rem 0.25rem 0; color: #556;">Location</td><td>${location || "not specified"}</td></tr>
+        <tr><td style="padding: 0.25rem 1rem 0.25rem 0; color: #556;">Event type</td><td>${esc(eventType) || "not specified"}</td></tr>
+        <tr><td style="padding: 0.25rem 1rem 0.25rem 0; color: #556;">Date</td><td>${esc(prettyDate)}</td></tr>
+        <tr><td style="padding: 0.25rem 1rem 0.25rem 0; color: #556;">Location</td><td>${esc(location) || "not specified"}</td></tr>
       </table>
       <p style="margin-top: 1.25rem;">Your message:</p>
-      <p style="background: #f2f6f0; padding: 1rem; border-left: 3px solid #a3ff3c; white-space: pre-wrap;">${message}</p>
+      <p style="background: #f2f6f0; padding: 1rem; border-left: 3px solid #a3ff3c; white-space: pre-wrap;">${esc(message)}</p>
       <p>We'll come back to you within a couple of days with availability and details. For anything urgent, reply to this email directly.</p>
       <p style="margin-top: 2rem;">BioTek Sound System<br/><a href="https://biotekcrew.party" style="color: #86e02e;">biotekcrew.party</a></p>
     </div>`,

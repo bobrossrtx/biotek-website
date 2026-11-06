@@ -77,8 +77,13 @@ git clone <your-repo> && cd biotek-website
 npm ci
 cp .env.example .env.local    # fill in ADMIN_PASSWORD, ADMIN_SECRET, SMTP_*, SITE_URL
 npm run build
-npm run start                 # serves :3000 — put nginx/caddy (HTTPS) in front
+npm run start                 # serves 127.0.0.1:3000 only — front it with cloudflared/nginx
 ```
+
+**Pentest hardening note (F-1/p1):** `npm run start` binds to `127.0.0.1` on
+purpose — the origin must NOT listen on the LAN interface. Let `cloudflared`
+connect locally. If you truly need LAN access, use `npm run start:lan` and
+firewall port 3000 to the tunnel host only.
 
 Keep `data/prod/` backed up — it holds the live database and all uploaded
 photos. On a VPS a nightly `rsync` or `sqlite3 .backup` cron is plenty.

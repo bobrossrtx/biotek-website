@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Reveal from "@/components/Reveal";
 import { UpcomingEventCard, PastEventRow } from "@/components/EventCard";
 import { getPastEvents, getUpcomingEvents } from "@/lib/content-db";
-import { pageMetadata } from "@/lib/seo";
+import { pageMetadata, jsonLdString } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -118,7 +118,7 @@ export default function EventsPage() {
 
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(eventJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdString(eventJsonLd) }}
       />
     </>
   );

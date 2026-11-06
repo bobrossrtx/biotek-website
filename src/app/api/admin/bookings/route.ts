@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { requireAdmin, bodyTooLarge } from "@/lib/api-guard";
 
 export const runtime = "nodejs";
 
@@ -16,6 +17,8 @@ type BookingRow = {
 };
 
 export async function GET(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const showRead = new URL(req.url).searchParams.get("all") === "1";
   const rows = getDb()
     .prepare(
@@ -40,6 +43,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+  if (bodyTooLarge(req)) {
+    return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+  }
   const body = await req.json().catch(() => ({}));
   const id = Number(body.id);
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
@@ -50,6 +58,8 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const id = Number(new URL(req.url).searchParams.get("id"));
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
   getDb().prepare("DELETE FROM bookings WHERE id = ?").run(id);

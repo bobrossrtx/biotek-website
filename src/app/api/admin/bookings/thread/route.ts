@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { requireAdmin } from "@/lib/api-guard";
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const bookingId = Number(new URL(req.url).searchParams.get("bookingId"));
   if (!bookingId) {
     return NextResponse.json({ error: "Missing bookingId" }, { status: 400 });

@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { requireAdmin } from "@/lib/api-guard";
 
 export const runtime = "nodejs";
 
 export async function GET() {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const db = getDb();
   const exists = db
     .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='newsletter'")
@@ -18,6 +22,8 @@ export async function GET() {
 }
 
 export async function DELETE(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const email = new URL(req.url).searchParams.get("email");
   if (!email) return NextResponse.json({ error: "Missing email" }, { status: 400 });
   getDb().prepare("DELETE FROM newsletter WHERE email = ?").run(email);

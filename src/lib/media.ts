@@ -1,14 +1,11 @@
 /**
  * Shared media type definitions for gallery uploads (images + videos).
+ * SVG is intentionally excluded everywhere: inline-served SVG can carry
+ * <script> (stored XSS on the origin), and the deny-by-default upload
+ * route now rejects .svg entirely rather than forcing a download.
  */
 
-export const IMAGE_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-  "image/svg+xml",
-]);
+export const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 export const VIDEO_TYPES = new Set([
   "video/mp4",
@@ -24,7 +21,6 @@ const EXT_FOR_MIME = new Map<string, string>([
   ["image/png", "png"],
   ["image/webp", "webp"],
   ["image/gif", "gif"],
-  ["image/svg+xml", "svg"],
   ["video/mp4", "mp4"],
   ["video/webm", "webm"],
   ["video/quicktime", "mov"],
@@ -46,7 +42,6 @@ export const UPLOAD_SERVE_TYPES: Record<string, string> = {
   ".png": "image/png",
   ".webp": "image/webp",
   ".gif": "image/gif",
-  ".svg": "image/svg+xml",
   ".mp4": "video/mp4",
   ".webm": "video/webm",
   ".mov": "video/quicktime",

@@ -7,7 +7,12 @@ import { Suspense } from "react";
 function LoginFormInner() {
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get("next") || "/admin/console";
+  const rawNext = params.get("next");
+  // only same-origin relative paths — blocks /admin?next=https://evil.example
+  const next =
+    rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") && !rawNext.includes("\\")
+      ? rawNext
+      : "/admin/console";
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, UPLOADS_DIR } from "@/lib/db";
+import { requireAdmin, bodyTooLarge } from "@/lib/api-guard";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -13,6 +14,8 @@ type PartyRow = {
 };
 
 export async function GET() {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const db = getDb();
   const rows = db
     .prepare(
@@ -33,6 +36,11 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+  if (bodyTooLarge(req)) {
+    return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+  }
   const body = await req.json().catch(() => ({}));
   const name = String(body.name ?? "").trim();
   if (!name) return NextResponse.json({ error: "Name is required" }, { status: 400 });
@@ -52,6 +60,11 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+  if (bodyTooLarge(req)) {
+    return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+  }
   const body = await req.json().catch(() => ({}));
   const id = Number(body.id);
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
@@ -64,6 +77,8 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const id = Number(new URL(req.url).searchParams.get("id"));
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
   // photos in this party get deleted too (cascade needs PRAGMA foreign_keys)

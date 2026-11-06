@@ -1759,16 +1759,6 @@ a {
   margin: 0;
 }
 
-.site-footer__admin {
-  color: var(--mute);
-  font-size: 0.72rem;
-}
-
-.site-footer__admin:hover {
-  color: var(--acid);
-}
-
-
 /* ---------- party folders (admin gallery) ---------- */
 
 .admin-parties {

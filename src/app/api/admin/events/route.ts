@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { requireAdmin, bodyTooLarge } from "@/lib/api-guard";
 
 export const runtime = "nodejs";
 
@@ -58,6 +59,8 @@ function bodyToRow(b: Record<string, unknown>) {
 }
 
 export async function GET() {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const rows = getDb()
     .prepare("SELECT * FROM events ORDER BY date ASC")
     .all() as EventRow[];
@@ -65,6 +68,11 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+  if (bodyTooLarge(req)) {
+    return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+  }
   const body = await req.json().catch(() => ({}));
   const row = bodyToRow(body);
   if (!row.title || !row.date) {
@@ -83,6 +91,11 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+  if (bodyTooLarge(req)) {
+    return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+  }
   const body = await req.json().catch(() => ({}));
   const id = Number(body.id);
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
@@ -104,6 +117,8 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const id = Number(new URL(req.url).searchParams.get("id"));
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
   getDb().prepare("DELETE FROM events WHERE id = ?").run(id);

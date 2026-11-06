@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, UPLOADS_DIR } from "@/lib/db";
+import { requireAdmin } from "@/lib/api-guard";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -19,6 +20,8 @@ type GalleryRow = {
 };
 
 export async function GET(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const partyParam = new URL(req.url).searchParams.get("partyId");
   const db = getDb();
   let rows: GalleryRow[];
@@ -47,6 +50,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const db = getDb();
   const contentType = req.headers.get("content-type") ?? "";
 
@@ -131,6 +136,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const body = await req.json().catch(() => ({}));
   const id = Number(body.id);
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
@@ -151,6 +158,8 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const id = Number(new URL(req.url).searchParams.get("id"));
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
   const row = getDb()

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { requireAdmin, bodyTooLarge } from "@/lib/api-guard";
 import nodemailer from "nodemailer";
 
 export const runtime = "nodejs";
@@ -14,6 +15,11 @@ function buildTransport() {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+  if (bodyTooLarge(req)) {
+    return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+  }
   const body = await req.json().catch(() => ({}));
   const bookingId = Number(body.bookingId);
   const text = String(body.message ?? "").trim();

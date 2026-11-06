@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { getDb } from "@/lib/db";
+import { requireAdmin, bodyTooLarge } from "@/lib/api-guard";
 
 export const runtime = "nodejs";
 
@@ -36,6 +37,8 @@ function esc(s: string): string {
 }
 
 export async function GET() {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   // config status for the admin UI
   const t = buildTransport();
   return NextResponse.json({
@@ -45,6 +48,11 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+  if (bodyTooLarge(req)) {
+    return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+  }
   const body = await req.json().catch(() => ({}));
   const subject = String(body.subject ?? "").trim();
   const message = String(body.message ?? "").trim();
